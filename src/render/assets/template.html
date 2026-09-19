@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HeronLoom Graph</title>
+<link rel="icon" type="image/png" href="data:image/png;base64,__FAVICON_B64__">
+<style>
+__STYLE__</style>
+</head>
+<body>
+<div id="app-loading" class="loading-overlay">
+  <div class="loading-text">Loading</div>
+  <div class="spinner"></div>
+</div>
+<script>
+window.addEventListener('error', () => {
+  const t = document.querySelector('#app-loading .loading-text');
+  if (t) t.textContent = 'Error — see console';
+});
+</script>
+<div id="topbar">
+  <div id="metrics">
+    <span id="univ-size">World: -- × -- × -- units</span>
+    <span id="speed">Speed: -- u/s</span>
+    <span id="position">Pos: --</span>
+  </div>
+  <button id="fullscreen-btn" class="tbtn icon" title="Fullscreen (F11)" aria-label="Toggle fullscreen">
+    <svg id="fs-icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/>
+      <path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+    </svg>
+    <svg id="fs-icon-collapse" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+      <path d="M9 3v3a2 2 0 0 1-2 2H4"/><path d="M15 3v3a2 2 0 0 0 2 2h3"/>
+      <path d="M9 21v-3a2 2 0 0 0-2-2H4"/><path d="M15 21v-3a2 2 0 0 1 2-2h3"/>
+    </svg>
+  </button>
+</div>
+<div id="sb">
+  <div id="sb-tabs">
+    <div class="sbt active" onclick="swTab('e')">Display</div>
+    <div class="sbt" onclick="swTab('m')">Map</div>
+  </div>
+  <div id="te" class="s">
+    <div class="st">Titles</div><div id="etl"></div>
+    <div class="st">Nova</div><div id="ep"></div>
+    <div class="st">ADEPT</div><div id="ea"></div>
+    <div class="st">Edges</div><div id="eo"></div>
+    <div class="st">View</div><div id="ev"></div>
+  </div>
+  <div id="tm">
+    <div id="map-search-wrap">
+      <div id="map-search-inner">
+        <input type="text" id="map-search" placeholder="Search clusters…" autocomplete="off" spellcheck="false" />
+        <button type="button" id="map-search-clear" aria-label="Clear search" title="Clear">✕</button>
+      </div>
+    </div>
+    <div id="map-search-count"></div>
+    <div id="map-content"></div>
+    <div id="map-search-empty">No clusters match</div>
+  </div>
+  <div id="tt">
+    <div id="tree-content"></div>
+  </div>
+</div>
+<canvas id="gc"></canvas>
+<div id="tree-loading" class="loading-overlay">
+  <div class="loading-text">Loading</div>
+  <div class="spinner"></div>
+</div>
+<div id="cluster-overlay"></div>
+<div id="leg">
+  <div class="ctl-title">Controls</div>
+  <div id="leg-rows">
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">W</span><span class="kbd">A</span><span class="kbd">S</span><span class="kbd">D</span></span><span class="ctl-label">Move <b>(or ↑←↓→)</b></span></div>
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">Q</span><span class="kbd">E</span></span><span class="ctl-label">Up / down</span></div>
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">Shift</span></span><span class="ctl-label">Speed ×2</span></div>
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">Scroll</span></span><span class="ctl-label">Adjust speed</span></div>
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">Right-click</span></span><span class="ctl-label">Camera look</span></div>
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">Space</span></span><span class="ctl-label">Free look <b>(toggle)</b></span></div>
+  <div class="ctl-row"><span class="ctl-keys"><span class="kbd">F</span></span><span class="ctl-label">Overview</span></div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@__THREE_VERSION__/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@__THREE_VERSION__/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+__APP_SCRIPT__</script>
+</body>
+</html>

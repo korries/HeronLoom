@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ doc.title }} — HeronLoom docs</title>
+<link rel="icon" type="image/png" href="/assets/hero.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="/static/dashboard.css" rel="stylesheet">
+<link href="/static/docs.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="docs-topbar">
+  <a class="docs-topbar__back" href="/">&larr; Dashboard</a>
+  <span class="docs-topbar__title">Docs · {{ doc.title }}</span>
+</div>
+
+<div class="docs-shell">
+
+  <nav class="docs-sidebar" aria-label="Documentation">
+    {% for label, items in groups %}
+    <div>
+      <p class="docs-sidebar__group-label">{{ label }}</p>
+      <div class="docs-sidebar__list">
+        {% for item in items %}
+        <a class="docs-sidebar__link{% if item.id == doc.id %} is-active{% endif %}"
+           href="/docs/{{ item.id }}">{{ item.title }}</a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </nav>
+
+  <main class="docs-content">
+    <h1 class="doc-title">{{ doc.title }}</h1>
+    <div class="doc-body">
+      {{ doc.html | safe }}
+    </div>
+  </main>
+
+  {% if doc.toc %}
+  <aside class="docs-toc" aria-label="On this page">
+    <p class="docs-toc__label">On this page</p>
+    {% macro render_toc(items) %}
+    <ul class="docs-toc__list">
+      {% for item in items %}
+      <li>
+        <a href="#{{ item.id }}">{{ item.name }}</a>
+        {% if item.children %}{{ render_toc(item.children) }}{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endmacro %}
+    {{ render_toc(doc.toc) }}
+  </aside>
+  {% endif %}
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, theme: "dark" });
+</script>
+</body>
+</html>

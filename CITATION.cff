@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "HeronLoom"
+abstract: >-
+  Iterative clustering, LLM-based analysis, graph construction, and analytical search
+type: software
+authors:
+  - family-names: "Favier"
+    given-names: "Romain"
+    alias: "Korries"
+    email: "korprotech@gmail.com"
+keywords:
+  - clustering
+  - topic modeling
+  - natural language processing
+  - sentiment analysis
+  - graph analysis
+  - large language models
+license: AGPL-3.0-only
+version: "0.1.0"
+date-released: "2026-09-16"
+url: "https://github.com/Korries/HeronLoom"
+repository-code: "https://github.com/Korries/HeronLoom"

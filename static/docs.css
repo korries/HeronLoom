@@ -1,0 +1,132 @@
+/* Layout chrome for the standalone /docs/{id} page — opened in a new tab
+   from the "Docs" dropdown (dashboard.html) or the Guide panel's "Open
+   full reference" link (_doc_partial.html). Only this page loads this
+   file; dashboard.css (design tokens + .doc-body content styling) is
+   shared with the inline Guide panel and loaded here too. */
+
+.docs-topbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.docs-topbar__back {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.docs-topbar__back:hover { color: var(--text); }
+.docs-topbar__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-dim);
+}
+
+.docs-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 200px;
+  gap: 32px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+  align-items: start;
+}
+
+.docs-sidebar {
+  position: sticky;
+  top: 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
+}
+.docs-sidebar__group-label {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0 0 6px;
+}
+.docs-sidebar__list { display: flex; flex-direction: column; gap: 1px; }
+.docs-sidebar__link {
+  display: block;
+  padding: 6px 9px;
+  border-radius: var(--radius);
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 13px;
+  border-left: 2px solid transparent;
+}
+.docs-sidebar__link:hover { color: var(--text); background: var(--bg-raised); }
+.docs-sidebar__link.is-active {
+  color: var(--cyan);
+  background: var(--bg-raised);
+  border-left-color: var(--cyan);
+}
+
+.docs-content { min-width: 0; }
+.docs-content h1.doc-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  margin: 0 0 22px;
+}
+
+.docs-toc {
+  position: sticky;
+  top: 64px;
+  max-height: calc(100vh - 84px);
+  overflow-y: auto;
+  font-size: 12px;
+}
+.docs-toc__label {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0 0 8px;
+}
+.docs-toc__list, .docs-toc__list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.docs-toc__list ul { padding-left: 12px; margin-top: 2px; }
+.docs-toc__list li { margin-bottom: 6px; }
+.docs-toc a {
+  color: var(--text-dim);
+  text-decoration: none;
+  display: block;
+  line-height: 1.4;
+}
+.docs-toc a:hover { color: var(--text); }
+
+@media (max-width: 1080px) {
+  .docs-shell { grid-template-columns: 200px minmax(0, 1fr); }
+  .docs-toc { display: none; }
+}
+@media (max-width: 760px) {
+  .docs-shell { grid-template-columns: minmax(0, 1fr); padding: 20px 16px 60px; }
+  .docs-sidebar {
+    position: static;
+    max-height: none;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .docs-sidebar__group-label { display: none; }
+  .docs-sidebar__list { flex-direction: row; flex-wrap: wrap; }
+  .docs-sidebar__link { border-left: none; border-bottom: 2px solid transparent; }
+  .docs-sidebar__link.is-active { border-left-color: transparent; border-bottom-color: var(--cyan); }
+}

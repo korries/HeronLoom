@@ -1,0 +1,42 @@
+{# Filled by GET /partials/runs/{run_id}/searches — dashboard.py's
+   partial_search_history(), reading search.py's saved <run_dir>/searches/*.md
+   headers via runs_api.py's list_searches(). Opened from the caret next to
+   "Ask anything" in _runs_table.html (see the .split-btn there), and
+   re-fetched every time that caret opens (see loadSearchHistory() in
+   dashboard.js) so a search that just finished shows up immediately.
+
+   Clicking a row calls dashboard.js's showSearchRecord() — the exact same
+   function a just-finished search's terminal "exit" event calls — so a
+   replayed question opens in the identical report panel as a fresh one. #}
+{% if not rows %}
+<div class="dropdown__empty">No questions asked yet for this run.</div>
+{% else %}
+{% for r in rows %}
+<div class="dropdown__item dropdown__item--search">
+  <button type="button" class="dropdown__item--search__main"
+          data-open-search-report data-run-id="{{ run_id }}" data-filename="{{ r.filename }}"
+          title="{{ r.question }}">
+    <span class="dropdown__item-question">{{ r.question }}</span>
+    <span class="dropdown__item--search__foot">
+      {% if r.asked_at %}
+      <relative-time class="dropdown__item-time" datetime="{{ r.asked_at }}">{{ r.asked_at }}</relative-time>
+      {% else %}
+      <span></span>
+      {% endif %}
+    </span>
+  </button>
+  <button type="button" class="dropdown__item-delete" data-delete-search
+          data-run-id="{{ run_id }}" data-filename="{{ r.filename }}"
+          aria-label="Delete this question" title="Delete this question">
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 6h18"/>
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6"/>
+      <path d="M14 11v6"/>
+    </svg>
+  </button>
+</div>
+{% endfor %}
+{% endif %}

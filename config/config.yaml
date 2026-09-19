@@ -1,0 +1,100 @@
+# HERONLOOM v1.0 — Common Configuration
+
+# =============================================================================
+# INPUT
+# =============================================================================
+
+content_type: "social_media"     # "social_media" | "document"
+
+# Column name overrides — leave blank for auto-detection
+# Example: if your title column is "headline_custom", set: title: headline_custom
+field_mapping:
+  content:     # auto-detected: content, body, text, selftext, message
+  id:          # auto-detected: id
+  title:       # auto-detected: title, headline, subject
+  timestamp:   # auto-detected: timestamp, created_at, published_at, posted_at
+  engagement:  # auto-detected: engagement, score
+
+
+# =============================================================================
+# LLM MODELS
+# =============================================================================
+# api_key: leave blank here. Set HEAVY_API_KEY / LIGHT_API_KEY in your .env
+# instead (see .env.example) — never commit a real key to this file.
+
+models:
+  heavy:
+    url:          "https://openrouter.ai/api/v1/chat/completions"
+    model:        "z-ai/glm-5.3-flash"
+    timeout:      180
+    max_retries:  3
+    num_ctx:      1048576
+    max_tokens:   131072
+    extra_params:
+      reasoning: { effort: "high" }
+      provider:
+        order: ["Novita"]
+        allow_fallbacks: false
+    api_key:
+
+    # To switch provider: replace the whole active block above with one of
+    # the two blocks below (just uncomment it).
+
+    # --- OpenAI ---
+    # api:          "openai-completions"
+    # url:          "https://api.openai.com/v1/chat/completions"
+    # model:        "gpt-5.5"
+    # timeout:      180
+    # max_retries:  3
+    # max_tokens:   64000
+    # api_key:
+
+    # --- Anthropic ---
+    # api:          "anthropic-messages"
+    # url:          "https://api.anthropic.com/v1/messages"
+    # model:        "claude-sonnet-5"
+    # timeout:      180
+    # max_retries:  3
+    # max_tokens:   64000
+    # api_key:
+
+  light:
+    url:          "http://localhost:11434/api/chat"
+    model:        "qwen3.5:9b"
+    timeout:      320
+    max_retries:  1
+    num_ctx:      60000
+    max_tokens:   30000
+    extra_params: { think: false }
+    api_key:
+
+
+
+# =============================================================================
+# RUN MODE
+# =============================================================================
+# full            -> clustering + naming + Nova + ADEPT + edges + 3D layout
+# clustering_only -> the same, minus Nova/ADEPT. Edge construction and the
+#                    3D layout still run (see pipeline.py, run_mode branch).
+# Override per-run with --run-mode.
+run_mode: "full"
+
+
+# =============================================================================
+# PIPELINE MODULES — model routing and parallelism
+# =============================================================================
+# Which LLM slot (models.heavy / models.light above) each module uses, and
+# how many clusters it processes at once.
+
+nova:
+  model_slot: heavy
+  parallel_clusters: 1   # 1 = sequential, required for a local model (can't
+                         # serve concurrent requests). 20-50 is common for a
+                         # fast API model.
+
+adept:
+  model_slot: heavy
+  parallel_clusters: 1   # same lever as nova.parallel_clusters, above
+
+naming:
+  model_slot: light

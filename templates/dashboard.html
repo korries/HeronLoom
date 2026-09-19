@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HeronLoom — Dashboard</title>
+<link rel="icon" type="image/png" href="/assets/hero.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css" rel="stylesheet">
+<link href="/static/dashboard.css" rel="stylesheet">
+</head>
+<body>
+<div class="app-shell" hx-ext="morph">
+
+  <header class="topbar">
+    <h1 class="topbar__title">HeronLoom</h1>
+    <span class="topbar__subtitle">dashboard</span>
+    <div class="topbar__spacer"></div>
+    {% if not pty_supported %}
+    <span class="pty-warning">{{ pty_unavailable_reason }}</span>
+    {% endif %}
+
+    <div class="topbar__group">
+      <!-- Inline quick reference: reuses #detail-panel-backdrop, the same
+           slide-over a run row's own "Run ID" link opens (see
+           _runs_table.html) — data-open-detail is a generic delegated
+           listener in dashboard.js, not specific to runs, so this button
+           needs no JS of its own. Renders docs/DASHBOARD.md, no new tab. -->
+      <button type="button" class="btn btn--sm" data-open-detail
+              hx-get="/partials/docs/dashboard" hx-target="#detail-panel-body" hx-swap="innerHTML"
+              title="Quick reference for this dashboard">
+        Guide
+      </button>
+
+      <!-- Full documentation set, one link per doc, each opening /docs/{id}
+           in a new tab. Same dropdown component as a row's "⋮" menu
+           (_runs_table.html) — data-dropdown-toggle/.dropdown__panel are
+           already wired generically in dashboard.js, so this is markup
+           only. Grouped to match docs_api.grouped_docs(). -->
+      <div class="menu-btn" id="docs-menu">
+        <button class="btn btn--sm" type="button" data-dropdown-toggle
+                aria-haspopup="menu" aria-expanded="false" aria-controls="docs-menu-panel"
+                title="All project documentation">
+          Docs <span aria-hidden="true">&#9662;</span>
+        </button>
+        <div class="dropdown__panel dropdown__panel--docs" id="docs-menu-panel" role="menu" hidden>
+          {% for label, items in doc_groups %}
+          <p class="dropdown__group-label">{{ label }}</p>
+          {% for item in items %}
+          <a class="dropdown__item dropdown__item--link" role="menuitem"
+             href="/docs/{{ item.id }}" target="_blank" rel="noopener">
+            <span>
+              {{ item.title }}
+              {% if item.blurb %}<span class="dropdown__item-hint">{{ item.blurb }}</span>{% endif %}
+            </span>
+            <span class="dropdown__item--link__arrow" aria-hidden="true">&#8599;</span>
+          </a>
+          {% endfor %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn--primary" id="btn-new-run" {% if not pty_supported %}disabled title="Interactive sessions unavailable on this platform"{% endif %}>+ New run</button>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-panel="panel-active" id="tab-active">Active runs</button>
+    <button class="tab" role="tab" aria-selected="false" data-panel="panel-trash" id="tab-trash">Trash</button>
+  </nav>
+
+  <!-- Refreshed by the 'runs-changed' event dashboard.js fires from the
+       /ws/runs WebSocket, not a polling timer — see RunsBroadcaster in dashboard.py. -->
+  <section class="tab-panel is-active" id="panel-active"
+            hx-get="/partials/runs/active" hx-trigger="load, runs-changed from:body" hx-swap="morph:innerHTML">
+    <div class="empty-state"><strong>Loading…</strong></div>
+  </section>
+
+  <section class="tab-panel" id="panel-trash"
+            hx-get="/partials/runs/trash" hx-trigger="load, runs-changed from:body" hx-swap="morph:innerHTML">
+    <div class="empty-state"><strong>Loading…</strong></div>
+  </section>
+
+</div>
+
+<div class="modal-backdrop" id="modal-search">
+  <div class="modal" style="width:min(480px, 92vw);">
+    <h2>&#10024; Ask anything</h2>
+    <div class="field">
+      <input type="text" id="search-modal-input" autocomplete="off" spellcheck="false" placeholder="Type your question…">
+    </div>
+    <div aria-hidden="true" style="height:20px; flex:0 0 20px;"></div>
+    <div class="field field--slider">
+      <label for="search-modal-budget">
+        Budget <span id="search-modal-budget-value" class="field--slider__value">3000</span>
+      </label>
+      <input type="range" id="search-modal-budget" min="100" max="6000" step="100" value="3000"
+             title="Total posts/documents budget across all retrieved groups — same as search.py's --budget flag. Components are never split, so the actual count can exceed this slightly.">
+      <p class="field__hint" style="white-space:nowrap;">A ceiling, not a target.<br>Actual usage depends on retrieval relevance.<br>Scale to your corpus size — ONLY CHANGE IF NEEDED</p>
+    </div>
+    <div class="modal__actions">
+      <button class="btn" id="modal-search-cancel">Cancel</button>
+      <button class="btn btn--primary" id="modal-search-submit">Search</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-new-run">
+  <div class="modal">
+    <h2>Launch a new run</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="f-run-mode">Run mode</label>
+        <select id="f-run-mode">
+          <option value="full" selected>Full (default)</option>
+          <option value="clustering_only">Clustering only</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="f-content-type">Content type</label>
+        <select id="f-content-type" title="What the input actually is — drives Nova's chronological (social_media) vs thematic (document) ordering. Fixed for this run's lifetime; not changeable on Resume.">
+          <option value="social_media" selected>Social media (default)</option>
+          <option value="document">Document</option>
+        </select>
+      </div>
+      <div class="field field--grow">
+        <label for="f-input">Input folder</label>
+        <div class="path-picker">
+          <input type="text" id="f-input" placeholder="data/raw/ (default)" autocomplete="off" spellcheck="false">
+          <button class="btn btn--sm" type="button" id="f-input-browse" title="Browse for a folder on this machine">Browse…</button>
+        </div>
+        <p class="field__hint">All supported files in this folder are loaded as posts/documents: <code>.json, .csv, .tsv, .txt, .md, .pdf</code>.</p>
+      </div>
+      <div class="field">
+        <label for="f-set-k">Number of clusters (K)</label>
+        <input type="number" id="f-set-k" min="1" placeholder="auto">
+        <label class="checkbox-field" for="f-fast-k"
+               title="Skip the GMM-BIC sweep; use HDBSCAN's own cluster count as K directly (fast, less refined). Same as config.yaml's clustering.k_estimation_method: hdbscan. Only applies when K is auto-detected, above.">
+          <input type="checkbox" id="f-fast-k">
+          <span>Fast <span class="checkbox-field__warn">(not recommended)</span></span>
+        </label>
+        <p class="field__hint">Leave blank to auto-detect the cluster count. Enter a value to set a custom count instead.</p>
+      </div>
+    </div>
+    <p style="color:var(--text-dim);font-size:11.5px;text-transform:uppercase;letter-spacing:0.05em;margin:14px 0 4px;">
+      Equivalent command
+    </p>
+    <code id="new-run-preview" style="display:block;background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px;font-size:12.5px;white-space:pre-wrap;word-break:break-all;"></code>
+    <div class="modal__actions">
+      <button class="btn" id="modal-new-run-cancel">Cancel</button>
+      <button class="btn btn--primary" id="modal-new-run-launch">Launch</button>
+    </div>
+  </div>
+</div>
+
+<!-- <input type="file" webkitdirectory> never exposes an absolute path to
+     JS, only file names, and pipeline.py needs the real path server-side —
+     so this walks GET /api/browse instead (runs_api.py's browse_directory()). -->
+<div class="modal-backdrop" id="modal-browse">
+  <div class="modal modal--wide">
+    <h2>Choose input folder</h2>
+    <div class="browse__pathbar">
+      <button class="btn btn--sm" type="button" id="browse-up" title="Go up one level" disabled>&#8593; Up</button>
+      <input type="text" id="browse-path-input" autocomplete="off" spellcheck="false"
+             title="Type an absolute path and press Enter to jump there">
+    </div>
+    <div class="browse__list" id="browse-list">
+      <div class="empty-state"><strong>Loading…</strong></div>
+    </div>
+    <p class="browse__meta" id="browse-meta"></p>
+    <div class="modal__actions">
+      <button class="btn" id="modal-browse-cancel">Cancel</button>
+      <button class="btn btn--primary" id="modal-browse-select">Select this folder</button>
+    </div>
+  </div>
+</div>
+
+<!-- Irreversible, so it requires typing the exact run count back in rather than a window.confirm(). -->
+<div class="modal-backdrop" id="modal-purge-all">
+  <div class="modal">
+    <h2>Permanently delete all trashed runs?</h2>
+    <p id="purge-all-prompt" style="color:var(--text-dim);font-size:13px;margin:0 0 10px;"></p>
+    <input type="text" id="purge-all-input" autocomplete="off" spellcheck="false"
+           style="width:100%;background:var(--bg-raised);border:1px solid var(--line);border-radius:var(--radius);padding:7px 9px;font-family:var(--font-mono);">
+    <div class="modal__actions">
+      <button class="btn" id="purge-all-cancel">Cancel</button>
+      <button class="btn btn--danger" id="purge-all-confirm" disabled>Permanently delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="term-drawer" id="term-drawer">
+  <div class="term-drawer__resize-handle" id="term-resize-handle"
+       title="Drag to resize · double-click to reset"></div>
+  <div class="term-drawer__bar">
+    <!-- Reuses the .status-pill component from _runs_table.html/dashboard.css — see setStatus() in dashboard.js for the states. -->
+    <span class="status-pill status-pill--idle term-drawer__status-pill" id="term-status-pill"
+          title="Current state of this terminal session">
+      <span class="status-pill__dot"></span>
+      <span id="term-status-text">idle</span>
+    </span>
+    <span id="term-argv"></span>
+    <div class="term-drawer__spacer"></div>
+    <button class="btn btn--sm" id="term-clear" title="Clear the terminal display (keeps the downloadable log)">Clear</button>
+    <button class="btn btn--sm" id="term-download" title="Download the full log as a .txt file">Download log</button>
+    <!-- Not just "Close": disconnecting this socket while the process is
+         still running makes dashboard.py's /ws/terminal handler SIGTERM it. -->
+    <button class="btn btn--sm btn--danger" id="term-close"
+            title="Stops the running process and closes this panel">Stop</button>
+  </div>
+  <div class="term-drawer__body">
+    <div id="xterm-container"></div>
+  </div>
+</div>
+
+<!-- Disabled/title mirrors the pty_supported gating on "+ New run" above. -->
+<div class="console-bar">
+  <button class="console-bar__toggle" id="console-toggle" type="button"
+          aria-expanded="false" aria-controls="term-drawer"
+          {% if not pty_supported %}disabled title="Interactive sessions unavailable on this platform"{% else %}title="Show or hide the terminal panel"{% endif %}>
+    <span aria-hidden="true" id="console-toggle-icon">&#9650;</span>
+    Console
+  </button>
+</div>
+
+<!-- Opened by clicking a run_id in either table; htmx fetches into
+     #detail-panel-body from GET /partials/runs/{run_id}/detail (see _run_detail.html). -->
+<div class="detail-panel-backdrop" id="detail-panel-backdrop">
+  <aside class="detail-panel" id="detail-panel" role="dialog" aria-label="Run details">
+    <button class="detail-panel__close" id="detail-panel-close" type="button" aria-label="Close" title="Close">&times;</button>
+    <div class="detail-panel__body" id="detail-panel-body">
+      <div class="empty-state"><strong>Loading…</strong></div>
+    </div>
+  </aside>
+</div>
+
+<!-- Opened once a search finishes (dashboard.js's "exit" handler calls
+     showLatestSearchRecord()) or by picking a past question from a run's
+     history dropdown (_runs_table.html, data-open-search-report) — both
+     paths render the same persisted <run_id>/searches/*.md record through
+     showSearchRecord(), so a replayed question looks identical to a fresh
+     one. Citations inside the rendered body ("[E12]") jump to their entry
+     under "Sources" further down in this same panel, never off the page. -->
+<div class="detail-panel-backdrop" id="search-report-backdrop">
+  <aside class="detail-panel detail-panel--wide" id="search-report-panel" role="dialog" aria-label="Search report">
+    <button class="detail-panel__close" id="search-report-close" type="button" aria-label="Close" title="Close">&times;</button>
+    <div class="detail-panel__body">
+      <div class="report-header">
+        <div class="report-header__label">&#10024; Asked</div>
+        <h2 class="report-header__question" id="search-report-question">Loading…</h2>
+        <p class="report-header__meta" id="search-report-meta"></p>
+      </div>
+      <div class="report-body" id="search-report-body">
+        <div class="empty-state"><strong>Loading…</strong></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div id="toast-root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.10/dist/htmx.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/idiomorph@0.7.4/dist/idiomorph-ext.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
+<script type="module" src="https://cdn.jsdelivr.net/npm/@github/relative-time-element@5.3.1/dist/bundle.js"></script>
+<script id="dashboard-config" type="application/json">
+{
+  "ptySupported": {{ pty_supported | tojson }},
+  "stageChoices": {{ stage_choices | tojson }},
+  "runModeChoices": {{ run_mode_choices | tojson }}
+}
+</script>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

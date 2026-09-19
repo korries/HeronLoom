@@ -1,0 +1,173 @@
+{# Shared by GET /partials/runs/active and GET /partials/runs/trash; `trashed`
+   picks the action set, `pty_supported` gates terminal-launching buttons. #}
+{% set status_help = {
+  'complete': 'Finished successfully.',
+  'in_progress': 'Currently running — started either from this dashboard or from the CLI.',
+  'crashed': "Recorded as in-progress, but no live process is holding its lock — it likely crashed, was killed, or the machine restarted before it could finish. Resume it to pick up from the last checkpoint.",
+  'unreadable': "This run's saved state file exists but couldn't be parsed. Trash/restore/purge still work; inspect the run's folder directly for anything else.",
+} %}
+{% if not rows %}
+<div class="empty-state">
+  {% if trashed %}
+  <strong>Trash is empty</strong>
+  Runs you trash show up here until you restore or purge them.
+  {% else %}
+  <strong>No runs yet</strong>
+  Launch one with "+ New run" above, or from the terminal with <code>python pipeline.py</code>.
+  {% endif %}
+</div>
+{% else %}
+<div class="runs-table-wrap">
+<div class="runs-table-scroll">
+<table class="runs">
+  <thead>
+    <tr>
+      <th>Run ID</th>
+      <th>Project</th>
+      <th>Stage</th>
+      <th>Mode</th>
+      <th>Status</th>
+      <th class="num">Posts/Documents</th>
+      <th class="num">Edges</th>
+      <th>Saved</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr id="run-row-{{ r.run_id }}">
+      <td class="run-id">
+        <button type="button" class="run-id__link" data-open-detail
+                hx-get="/partials/runs/{{ r.run_id }}/detail{{ '?trashed=true' if trashed else '' }}"
+                hx-target="#detail-panel-body" hx-swap="innerHTML"
+                title="View run details">
+          {{ r.run_id }}{% if r.active %}<span class="run-id__active-star" title="Active run">&#9733;</span>{% endif %}
+        </button>
+      </td>
+      <td>{{ r.project_name }}</td>
+      <td>{{ r.stage }}</td>
+      <td>
+        {% if r.run_mode and r.run_mode != '—' %}
+        <span class="mode-badge">{{ r.run_mode }}</span>
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        <span class="status-pill status-pill--{{ r.status }}" title="{{ status_help.get(r.status, '') }}"><span class="status-pill__dot"></span>{{ r.status }}</span>
+        {% if r.locked_by %}
+        <span class="status-pill status-pill--locked" title="pid {{ r.locked_by.pid }} on {{ r.locked_by.host }} since {{ r.locked_by.locked_at }}"><span class="status-pill__dot"></span>locked</span>
+        {% endif %}
+      </td>
+      <td class="num">{{ r.posts if r.posts is not none else '—' }}</td>
+      <td class="num">{{ r.edges if r.edges is not none else '—' }}</td>
+      <td class="num">
+        {% if r.saved_at %}<relative-time datetime="{{ r.saved_at }}">{{ r.saved_at }}</relative-time>{% else %}—{% endif %}
+      </td>
+      <td>
+        <div class="row-actions">
+          {% if trashed %}
+            <button class="btn btn--sm" data-act="restore" data-run-id="{{ r.run_id }}">Restore</button>
+            <button class="btn btn--sm btn--danger" data-act="purge" data-run-id="{{ r.run_id }}" data-confirm="Permanently delete '{{ r.run_id }}'? This cannot be undone.">Purge</button>
+          {% else %}
+            {% if r.has_render %}
+              <a class="btn btn--sm" href="/runs/{{ r.run_id }}/render.html" target="_blank" rel="noopener"
+                 title="Opens the already-rendered 3-D view in a new tab of your own browser">Open 3D view</a>
+            {% elif r.has_output %}
+              <button class="btn btn--sm" data-launch="show_render" data-run-id="{{ r.run_id }}"
+                      {% if not pty_supported %}disabled{% endif %}
+                      title="No 3-D view saved yet for this run — computes and writes it, doesn't open a browser tab itself anymore">Generate 3D view</button>
+            {% endif %}
+            {% if r.has_output %}
+              <div class="split-btn" id="search-actions-{{ r.run_id }}">
+                <button type="button" class="btn btn--sm split-btn__main" data-open-search-modal data-run-id="{{ r.run_id }}"
+                        title="Ask anything about this run's data">&#10024; Ask anything</button>
+                <button class="btn btn--sm split-btn__toggle" type="button" data-dropdown-toggle
+                        aria-haspopup="true" aria-expanded="false" aria-controls="search-history-{{ r.run_id }}"
+                        title="Past questions">
+                  <span aria-hidden="true">&#9662;</span>
+                  <span class="sr-only">Past questions</span>
+                </button>
+                <!-- Empty until opened — loadSearchHistory() in dashboard.js
+                     fetches /partials/runs/{run_id}/searches on every open. -->
+                <div class="dropdown__panel dropdown__panel--history" id="search-history-{{ r.run_id }}" hidden
+                     data-search-history data-run-id="{{ r.run_id }}"></div>
+              </div>
+            {% endif %}
+            {% if not r.locked_by %}
+              <div class="split-btn" id="resume-actions-{{ r.run_id }}">
+                <button class="btn btn--sm btn--primary split-btn__main" data-launch="resume" data-run-id="{{ r.run_id }}"
+                        {% if not pty_supported %}disabled{% endif %}>Resume</button>
+                <button class="btn btn--sm split-btn__toggle" type="button" data-dropdown-toggle
+                        aria-haspopup="true" aria-expanded="false" aria-controls="resume-opts-{{ r.run_id }}"
+                        {% if not pty_supported %}disabled{% endif %}
+                        title="Resume options">
+                  <span aria-hidden="true">&#9662;</span>
+                  <span class="sr-only">Resume options</span>
+                </button>
+                <div class="dropdown__panel dropdown__panel--form" id="resume-opts-{{ r.run_id }}" hidden>
+                  <div class="field">
+                    <label for="resume-from-{{ r.run_id }}">Resume from</label>
+                    <select id="resume-from-{{ r.run_id }}">
+                      <option value="">Last checkpoint</option>
+                      {% for st in stage_choices %}<option value="{{ st }}">{{ st }}</option>{% endfor %}
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="run-mode-{{ r.run_id }}">Run mode</label>
+                    <select id="run-mode-{{ r.run_id }}">
+                      <option value="">Use recorded mode</option>
+                      {% for rm in run_mode_choices %}<option value="{{ rm }}">{{ rm }}</option>{% endfor %}
+                    </select>
+                  </div>
+                  <button class="btn btn--sm btn--primary" style="width:100%;justify-content:center;"
+                          data-launch="resume" data-run-id="{{ r.run_id }}"
+                          {% if not pty_supported %}disabled{% endif %}>Resume with these options</button>
+                </div>
+              </div>
+
+              <div class="menu-btn" id="row-menu-actions-{{ r.run_id }}">
+                <button class="btn btn--sm" type="button" data-dropdown-toggle aria-label="More actions"
+                        aria-haspopup="menu" aria-expanded="false" aria-controls="row-menu-{{ r.run_id }}">&#8942;</button>
+                <div class="dropdown__panel" id="row-menu-{{ r.run_id }}" role="menu" hidden>
+                  <button class="dropdown__item" role="menuitem" type="button"
+                          data-launch="relabel" data-run-id="{{ r.run_id }}"
+                          {% if not pty_supported %}disabled{% endif %}>
+                    Relabel
+                    <span class="dropdown__item-hint">Redo cluster names only.</span>
+                  </button>
+                  <button class="dropdown__item" role="menuitem" type="button"
+                          data-launch="relabel" data-run-id="{{ r.run_id }}" data-force-skip-llm="true"
+                          {% if not pty_supported %}disabled{% endif %}>
+                    Relabel without LLM
+                    <span class="dropdown__item-hint">c-TF-IDF fallback, skips the naming call.</span>
+                  </button>
+                  <div class="dropdown__divider"></div>
+                  <button class="dropdown__item" role="menuitem" type="button"
+                          data-launch="sync_models" data-run-id="{{ r.run_id }}"
+                          {% if not pty_supported %}disabled{% endif %}>
+                    Sync models
+                    <span class="dropdown__item-hint">Patches models (heavy/light) + model routing only. Source: config.yaml.</span>
+                  </button>
+                  <div class="dropdown__divider"></div>
+                  <button class="dropdown__item dropdown__item--danger" role="menuitem" type="button"
+                          data-act="trash" data-run-id="{{ r.run_id }}"
+                          data-confirm="Move '{{ r.run_id }}' to trash? You can restore it from the Trash tab afterwards.">
+                    Trash
+                  </button>
+                </div>
+              </div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+</div>
+{% if trashed and rows|length > 1 %}
+<div style="margin-top:10px;">
+  <button class="btn btn--sm btn--danger" data-act="purge-all" data-run-count="{{ rows|length }}">Purge all</button>
+</div>
+{% endif %}
+{% endif %}

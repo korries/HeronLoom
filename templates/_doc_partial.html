@@ -1,0 +1,21 @@
+{# Filled by GET /partials/docs/{doc_id} — see docs_api.py's render_doc().
+   Opened from the topbar's "Guide" button (dashboard.html, data-open-detail)
+   into the same #detail-panel-backdrop / #detail-panel-body slide-over
+   _run_detail.html uses for a run's own details — no new browser tab, no
+   new JS: openDetailPanel()/closeDetailPanel() in dashboard.js already
+   drive any hx-get target="#detail-panel-body" call, run detail or doc
+   alike. "Open full reference" is the escape hatch into docs_page.html
+   for anyone who wants the sidebar, the full doc list, and other docs'
+   cross-references — this panel only ever shows the one doc it was
+   opened for. #}
+<div class="detail-panel__project">Dashboard docs</div>
+<div class="detail-panel__run-id" style="font-size:18px;">{{ doc.title }}</div>
+<div class="detail-panel__badges">
+  <a class="btn btn--sm" href="/docs/{{ doc.id }}" target="_blank" rel="noopener"
+     title="Open with the full sidebar and table of contents">
+    Open full reference &#8599;
+  </a>
+</div>
+<div class="detail-panel__section doc-body">
+  {{ doc.html | safe }}
+</div>

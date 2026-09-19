@@ -1,0 +1,36 @@
+[project]
+name = "heronloom"
+version = "0.1.0"
+description = "Iterative clustering, LLM-based analysis, graph construction, and analytical search"
+readme = "README.md"
+license = "AGPL-3.0-only"
+authors = [
+    { name = "Romain Favier", email = "korprotech@gmail.com" },
+]
+requires-python = ">=3.11"
+
+[project.urls]
+homepage = "https://github.com/Korries/HeronLoom"
+repository = "https://github.com/Korries/HeronLoom"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = [".", "src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"dashboard.py" = ["E402"]
+"pipeline.py" = ["E402"]
+"reload.py" = ["E402", "E701"]
+"src/search.py" = ["E402"]
+"src/k_estimator_hdbscan.py" = ["E402"]
+"src/lda_go.py" = ["E702"]
+"src/render/scene.py" = ["E702"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]

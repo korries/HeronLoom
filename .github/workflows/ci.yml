@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install ruff (version pinned in requirements-dev.txt)
+        run: |
+          RUFF_VERSION=$(grep -oP '(?<=^ruff==)\S+' requirements-dev.txt)
+          python -m pip install "ruff==${RUFF_VERSION}"
+      - run: ruff check .
+      - run: python tools/check_links.py
+
+      - name: Check for leftover placeholders
+        run: |
+          ! grep -rlE "your-username|your-org|<repo-url>|YOUR [A-Z ]*NAME|YOUR EMAIL|TODO:" \
+            --include="*.md" --include="*.cff" --include="*.toml" --include="*.yml" --include="*.yaml" \
+            --exclude="ci.yml" .
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  python-version: "3.11" }
+          - { os: ubuntu-latest,  python-version: "3.13" }
+          - { os: windows-latest, python-version: "3.11" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - run: python -m pip install -r requirements-dev.txt
+      - run: pytest -q
+
+      - name: Check dependency licenses
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        run: |
+          pip-licenses --partial-match --allow-only="MIT;BSD;Apache;ISC;Zlib;CC0;0BSD;Python Software Foundation;PSF-2.0;MPL-2.0;Mozilla Public License 2.0;GPL-3.0-only"

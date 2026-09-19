@@ -1,0 +1,55 @@
+{# Filled by GET /partials/runs/{run_id}/detail — see runs_api.py's get_run_detail(). #}
+<div class="detail-panel__run-id">
+  {{ run.run_id }}{% if run.active %}<span class="run-id__active-star" title="Active run">&#9733;</span>{% endif %}
+</div>
+<div class="detail-panel__project">{{ run.project_name }}{% if run.trashed %} · trashed{% endif %}</div>
+
+<div class="detail-panel__badges">
+  <span class="status-pill status-pill--{{ run.status }}"><span class="status-pill__dot"></span>{{ run.status }}</span>
+  {% if run.run_mode and run.run_mode != '—' %}<span class="mode-badge">{{ run.run_mode }}</span>{% endif %}
+  {% if run.locked_by %}
+  <span class="status-pill status-pill--locked" title="pid {{ run.locked_by.pid }} on {{ run.locked_by.host }} since {{ run.locked_by.locked_at }}">
+    <span class="status-pill__dot"></span>locked
+  </span>
+  {% endif %}
+</div>
+
+<div class="detail-panel__section">
+  <h3>Overview</h3>
+  <dl class="kv-grid">
+    <dt>Stage</dt><dd>{{ run.stage }}</dd>
+    <dt>Posts/Documents</dt><dd class="num">{{ run.posts if run.posts is not none else '—' }}</dd>
+    <dt>Edges</dt><dd class="num">{{ run.edges if run.edges is not none else '—' }}</dd>
+    <dt>Started</dt>
+    <dd>{% if run.started_at %}<relative-time datetime="{{ run.started_at }}">{{ run.started_at }}</relative-time>{% else %}—{% endif %}</dd>
+    <dt>Last checkpoint saved</dt>
+    <dd>{% if run.saved_at %}<relative-time datetime="{{ run.saved_at }}">{{ run.saved_at }}</relative-time>{% else %}—{% endif %}</dd>
+    {% if run.relabeled_at %}
+    <dt>Labels last redone</dt>
+    <dd><relative-time datetime="{{ run.relabeled_at }}">{{ run.relabeled_at }}</relative-time></dd>
+    {% endif %}
+    <dt>Input</dt>
+    <dd{% if not run.input_is_recorded %}
+        title="This run predates CLI-invocation tracking, so nothing was recorded — shown is pipeline.py's own default instead."
+       {% endif %}>{{ run.input_dir }}</dd>
+  </dl>
+</div>
+
+<div class="detail-panel__section">
+  <h3>Config snapshot</h3>
+  {% if run.config_yaml %}
+  <p class="detail-panel__hint">
+    Frozen at launch (<code>config_snapshot.yaml</code>) — what this run actually ran with,
+    regardless of any change to the live config.yaml since.
+  </p>
+  <div class="code-block code-block--scroll">
+    <pre id="detail-config-text">{{ run.config_yaml }}</pre>
+    <button class="btn btn--sm code-block__copy" type="button" data-copy-target="detail-config-text" title="Copy to clipboard">Copy</button>
+  </div>
+  {% else %}
+  <p class="detail-panel__hint">
+    No config snapshot on disk for this run — it predates config-snapshot tracking, or its
+    folder was touched manually.
+  </p>
+  {% endif %}
+</div>

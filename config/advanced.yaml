@@ -1,0 +1,304 @@
+# HERONLOOM v1.0 — Advanced Configuration
+# Algorithm internals. Common settings are in config.yaml, which always wins on a shared key.
+
+# =============================================================================
+# PIPELINE MODULES
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Nova — LLM subtopic extraction + narrative chains
+# -----------------------------------------------------------------------------
+nova:
+  min_posts_per_subtopic: 2
+  max_text_chars:         500
+  max_retries:            3    # overrides models.heavy.max_retries for this module
+  checkpoint_enabled:     true
+
+# -----------------------------------------------------------------------------
+# ADEPT — Adaptive Density-based Event Pooling (orphan clustering)
+# -----------------------------------------------------------------------------
+adept:
+  apply_forces: 1  # 1 = edges influence FA2 layout | 0 = visual only (force=0)
+
+  # Pool formation
+  min_orphans_for_event: 2  # min orphans required to run ADEPT on a cluster
+  pool_min_size:         3  # min pool size (hub + at least 2 members)
+  pool_max_size:         20  # excess candidates stay orphan; null = no cap
+
+  # Density Peak Clustering thresholds
+  dpc_dc_percentile:        2.0  # % of point pairs to set dc (paper: 1-2%)
+  dpc_membership_percentile: 95  # delta percentile — above = stays orphan
+  dpc_gamma_percentile:      60  # gamma (rho*delta) percentile to declare a hub
+
+  # Edge forces
+  force_spoke: 0.1  # hub -> member
+
+# =============================================================================
+# EMBEDDING
+# =============================================================================
+embedding:
+  mode: "ollama"
+  ollama_url:   "http://localhost:11434/api/embed"
+  ollama_model: "qwen3-embedding:8b"
+  batch_size:   64
+  num_ctx:      8192  # max context for Qwen3-Embedding 8b
+  truncate:       true
+  raw_dimensions: 1024  # truncation target (MRL); must match embedding.py / search.py fallback
+
+  instruct_prompt: ""   # blank = auto-derived from config.yaml's content_type
+
+# =============================================================================
+# DIMENSIONALITY REDUCTION
+# =============================================================================
+
+umap_cluster:  # UMAP for clustering, pre-HDBSCAN
+  n_components: 5    # 5d optimal for short-text clustering (BERTopic 2025)
+  n_neighbors:  15   # optimal for tweets/posts
+  min_dist:     0.0  # dense regions -> better HDBSCAN performance
+  metric:       "cosine"
+  random_state: 42
+
+pacmap_layout:  # PaCMAP for 3D visual layout
+  n_components:  3
+  n_neighbors:   15
+  MN_ratio:      0.5
+  FP_ratio:      2.0
+  output_scale:  50
+  metric:        "euclidean"
+  random_state:  42
+  scale_mode: "per_axis"    # "per_axis" = spherical universe (recommended) | "uniform" = geometry preserved, Z often shorter
+  layout_space: "lda"       # "lda" = embedding_lda | "raw" = embedding_raw
+
+# =============================================================================
+# CLUSTERING
+# =============================================================================
+
+clustering:
+  k_estimation_method: "gmm_bic"  # "hdbscan" | "gmm_bic" (UMAP + GMM + BIC)
+  gmm_n_jobs:          -1
+  bic_penalty_alpha:   0.5
+  clustering_float: float64   # float32 or float64
+
+  gmm_input_space: "raw"      # "raw" (default) | "soft_zca"
+  gmm_zca_eps:     0.01       # eigenvalue regularization eps (paper: 0.01 or 0.1)
+
+adr:
+  max_iter:             30
+  random_state:         42
+  covariance_type:      "diag"  # "diag" | "full"
+  n_dims:               auto   # auto = K-1
+  gmm_repetitions:      10
+
+  soft_zca_input_space: true    # true | false
+  soft_zca_eps:         0.01    # eigenvalue regularization eps (paper: 0.01 or 0.1)
+
+  # LDA-GO
+  ldago_lr:       0.1     # learning rate
+  ldago_max_iter: 30000   # max gradient iterations
+  ldago_tol:      1e-3    # convergence threshold on the gradient norm
+  ldago_force_ce: true
+  ldago_ce_optimizer: "sgd"   # "sgd" (paper default) | "adam"
+  ldago_random_state: 42
+  ldago_device: "cuda"    # "cuda" (shipped) | "cpu" | null (numpy/CPU)
+  ldago_stop_on_loss_increase: true
+  adr_float: "float64"    # "float64" (recommended) | "float32" (faster, less stable)
+
+hdbscan:
+  min_cluster_size:         15
+  min_samples:              7
+  metric:                   "euclidean"
+  method:                   "leaf"
+  prediction_data:          true
+  cluster_selection_epsilon: 0.0
+
+  soft_zca_input_space: false   # true = consistent with the GMM-BIC ZCA sweep
+  soft_zca_eps:         0.01    # eigenvalue regularization eps (0.01 or 0.1)
+
+# =============================================================================
+# GRAPH EDGES
+# =============================================================================
+edges:
+
+  temporal_influence:
+    semantic_min: 0.95          # minimum cosine to validate a link
+    tau_hours: 6                 # decay window, in hours
+    tmax_hours: 48                # temporal ceiling, in hours
+    threshold_percentile: 0    # minimum accepted strength percentile
+
+  temporal:
+    semantic_min: 0.95           # minimum cosine to validate a link
+    tau_hours: 6
+    tmax_hours: 48
+    threshold_percentile: 0
+    pass2_max_out: 2             # per-node emission quota in pass 2
+    pass2_max_in: 1              # per-node reception quota in pass 2
+
+  semantic_inter:  # greedy 1-to-1, exempt from b-matching
+    threshold: 0.95   # minimum cosine for an inter-cluster link
+
+  adept_graft:
+    force_graft: 0.0        # hub -> nova node
+    graft_min_cosine: 0.9   # min cosine similarity for ADEPT->NOVA graft
+
+  pruning:  # post-hoc bridge dedup by connected component — see edges.py
+    max_component_size: 500  # final component size cap, enforced once after all edges are built — see _split_oversized_components in edges.py
+
+    isolation_guard:  # rejects a bridge between two isolated singleton components
+      enabled: false  # false = no isolation check, only transitive dedup runs
+      dynamic: true   # true = a node unblocked earlier in the same pass can anchor later candidates
+
+# =============================================================================
+# LAYOUT — Force Atlas 2
+# =============================================================================
+fa2:
+  scaling_ratio:                    2.0
+  gravity:                          1.0
+  max_iter:                         100
+  daily_iter:                       100
+  edge_weight_influence:            1.0
+  jitter_tolerance:                 0.2
+  outbound_attraction_distribution: true
+  lin_log_mode:                     false
+  strong_gravity_mode:              false
+
+  local_scale:    150.0   # expands internal cluster structure (avoids compact blob)
+  universe_scale: 4000.0  # spreads cluster centroids apart (avoids overlap)
+
+  nova_straighten:
+    enabled:         true
+    residual_factor: 0.1  # 0 = perfectly straight line, 1 = FA2 result untouched
+    min_chain_len:   3     # chains shorter than this rarely fold, skipped as a no-op
+
+  node_spacing:  # minimum node spacing, scales with render.node_size_mult / big_pct / mega_pct
+    enabled:      true
+    margin:        3.0  # guaranteed empty space added on top of (radius_i + radius_j)
+    max_passes:    6    # safety-net guard rail, not a tuning knob
+
+  block_reorganize:  # keeps each nova chain / ADEPT pool as one rigid block, repositions to avoid overlap
+    enabled:            true
+    margin:              1.15  # safety padding on (r_i + r_j); 1.0 = bubbles allowed to touch
+    min_blocks_to_run:   2     # skip clusters with only one block
+
+  cluster_overlap_removal:
+    enabled:         true
+    margin:          1.2  # safety padding on (r_i + r_j); 1.0 = spheres allowed to touch, 1.05 = small gap
+    max_iter:        200
+    damping:         0.5   # per-iteration displacement damping, avoids oscillation
+    mass_weighting:  true  # bigger clusters move less than smaller ones
+    anchor_strength: 0.02  # soft pull back toward each cluster's pre-resolution centroid
+
+  cluster_declump:  # distance-decaying repulsion between cluster centroids, runs before cluster_overlap_removal — see _declump_clusters()
+    enabled:         true
+    strength:        100.0    # repulsion intensity, scales with each pair's radii
+    iterations:      200      # convergence budget
+    damping:         0.3      # per-iteration displacement damping
+    anchor_strength: 0.2      # spring back toward each cluster's pre-declump position
+    attraction:      0.0      # 0 = pure repulsion; >0 pulls inter-cluster-edge-connected clusters together
+    mass_mode:       "size"   # "size" (post count, default) | "radius" | "uniform"
+
+  edge_weights:
+    nova:                1.0  # intra-subtopic (LLM)
+    adept_spoke:         3.0  # multiplier on adept.force_spoke
+    adept_graft:         1.0  # multiplier on edges.adept_graft.force_graft
+    temporal_influence:  0.0  # directed cascade (engagement + time)
+    temporal:            0.0  # chronological link (time only)
+    semantic_inter:      0.0  # greedy 1-to-1 inter-cluster bridges
+
+# =============================================================================
+# RENDER
+# =============================================================================
+
+render:
+  node_size_mult:   10.0    # node size multiplier
+  mega_pct:         0.95   # engagement percentile above which a node is sized "mega"
+  big_pct:          0.80   # engagement percentile above which a node is sized "big"
+  nav_margin_ratio: 0.20   # camera bounding box margin (fraction of diagonal)
+
+  edge_opacity:
+    nova:                0.8
+    adept_spoke:         0.8
+    adept_graft:         0.8
+    temporal_influence:  1.0
+    temporal:            1.0
+    semantic_inter:      1.0
+
+  edge_width:  # screen-space pixels, zoom-independent
+    nova:                0.8
+    adept_spoke:         0.8
+    adept_graft:         1.0
+    semantic_inter:      1.0
+    temporal:            1.0
+    temporal_influence:  1.0
+
+  edge_dash:  # dash pattern for the 3 hover-revealed bridge edges
+    dash_size:  400      # dash length (world units)
+    gap_size:   300      # gap length (world units)
+    flow_speed: 1.0      # animated flow speed (temporal/temporal_influence), world-units/frame, universe mode only
+
+    tree_dash_size:  40   # dash length (tree view)
+    tree_gap_size:   40   # gap length (tree view)
+    tree_flow_speed: 0.3  # flow speed (tree view)
+
+  edge_colors:
+    nova:                "#D9DAE2"
+    adept_spoke:         "#9A9DA8"
+    adept_graft:         "#6E7078"
+    semantic_inter:      "#3DDC97"
+    temporal:            "#4C8DFF"
+    temporal_influence:  "#F0349D"
+
+  label_font_size:    # text size — for 'cluster' this is an absolute ceiling
+    cluster: 100
+    nova:    100
+    adept:   100
+
+  label_offset:        # height above the node/cluster
+    cluster: 28
+    nova:    110
+    adept:   110
+
+  label_distance:  # "auto" on cluster = diagonal * 0.45; nova/adept have no cutoff, driven by the cluster-fade reveal instead
+    cluster: auto
+
+  label_min_font_size:  # floor (world units) for the label's rendered size
+    cluster: 150
+    nova:    40
+    adept:   40
+
+  cluster_min_radius: 3000  # minimum cluster radius (world units), read by render/ (halo, camera focus) and fa2.py (spacing only)
+
+  label_screen_px:  # fixed screen size in pixels, does not vary with camera distance
+    cluster: 10
+    nova:    13
+    adept:   13
+
+  label_collision_margin_px: 6  # screen-px margin between two cluster label plates before they conflict
+
+  label_backdrop_pad_x_ratio: 0.8  # left/right padding of the cluster-label backdrop, multiple of text size
+
+  label_guaranteed_radius_mult: 1.2  # inside this radius (multiplier), a label always shows even if it overlaps another
+
+  label_max_visible:
+    cluster: 12  # hard cap on simultaneous cluster labels, closest to camera wins; 0 = unlimited
+
+  label_nudge:  # declutter by pushing conflicting labels apart on screen instead of hiding them
+    enabled:     true
+    max_px:      80      # max screen-px displacement from anchor
+    iterations:  4       # resolution passes per frame
+    ease_speed:  0.15    # ease-back speed toward target position
+
+  label_fade_speed: 0.25  # opacity transition speed (fraction/frame, ~60fps) on show/hide — binary display, not a distance fade
+
+  nova_spline:
+    enabled: true   # false = nova chains as straight segments, like other groups
+    samples: 10      # sampled points per parent-child segment (8-12 recommended)
+    tension: 0.2     # Catmull-Rom tension (0 = angular, 1 = very round)
+
+  node_roles:
+    pioneer:   { shape: "octahedron",  color: "#FFD700" }
+    hub:       { shape: "diamond",     color: "#FF8C00" }
+    amplifier: { shape: "sphere_large",color: "#00CC44" }
+    latest:    { shape: "sphere",      color: "#00AAFF" }
+    member:    { shape: "sphere",      color: "#FF8C00" }
+    offspring: { shape: "sphere",      color: "#44BB88" }
+    orphan:    { shape: "sphere_small",color: "#888888" }

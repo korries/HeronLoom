@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.local
+
+# Pipeline outputs — generated at runtime, never versioned
+runs/
+data/raw/
+data/processed/
+*.pkl
+
+# Logs — may contain excerpts of your input data, see SECURITY.md
+logs/
+
+# search.py --dry-run default output paths
+dry_run_prompt.md
+dry_run_retrieval.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+build/
+dist/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

@@ -1,0 +1,94 @@
+name: Bug report
+description: Something in the pipeline, dashboard, search or 3D view does not work.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. Please fill in as much
+        detail below as you can — it's what makes a bug reproducible.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what you got instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command
+      description: The full command line, or the dashboard action you clicked.
+      render: shell
+      placeholder: python pipeline.py --input data/raw/ --run-mode full
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: >
+        The traceback, plus the surrounding lines from `logs/YYYY-MM-DD.log`.
+        Redact anything private — logs can contain post text.
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Which stage
+      options:
+        - "[1/7] Embedding"
+        - "[2/7] K estimation"
+        - "[3/7] ADR"
+        - "[4/7] Naming"
+        - "[5/7] Nova / ADEPT"
+        - "[5/7] Edges"
+        - "[6/7] ForceAtlas2"
+        - "[7/7] Saving / render"
+        - "search.py"
+        - "dashboard.py"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: corpus
+    attributes:
+      label: Corpus size and file types
+      placeholder: "~12,000 posts, one CSV + 40 PDFs"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Python version, GPU
+      placeholder: "Windows 11, Python 3.12, RTX 4070 (CUDA) / CPU only"
+    validations:
+      required: true
+
+  - type: input
+    id: models
+    attributes:
+      label: Models configured
+      description: The heavy and light slots from config.yaml. Never paste an API key.
+      placeholder: "heavy: OpenRouter z-ai/glm-5.3-flash · light: Ollama qwen3.5:9b"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am running the commands from the repository root.
+          required: true
+        - label: I installed the dependencies with `pip install -r requirements.txt`.
+          required: true
+        - label: I searched existing issues and Discussions.
+          required: true
